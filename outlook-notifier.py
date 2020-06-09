@@ -3,12 +3,17 @@
 #-------------------------------------------------------------------------------------------------------------------------
 #This is a python2 script.
 #Install Notes:
-#pip2.7 install pypiwin32
-#C:\Python27\python.exe outlook.py
-#Use git-bash to see colors: $ c:/python27/python -i outlook.py
+#  pip2.7 install pypiwin32
+#  pip2.7 install git+https://github.com/frakman1/lazylights@2.0 
+#  pip2.7 install playsound
+#  pip2.7 install colorama
+
+#Run Notes:
+#  C:\Python27\python.exe outlook-notifier.py
+#  Use git-bash to see colors: $ c:/python27/python -i outlook-notifier.py
 #For emojis: 
-# Use Locale:C Character-Set:UTF-8 in git-bash->Options->Text
-# Install https://github.com/eosrei/twemoji-color-font/releases/download/v12.0.1/TwitterColorEmoji-SVGinOT-12.0.1.zip
+#  Use Locale:C Character-Set:UTF-8 in git-bash->Options->Text
+#  Install https://github.com/eosrei/twemoji-color-font/releases/download/v12.0.1/TwitterColorEmoji-SVGinOT-12.0.1.zip
 #-------------------------------------------------------------------------------------------------------------------------
 import sys
 import win32com.client
@@ -30,7 +35,7 @@ bright_white = Fore.WHITE + Style.BRIGHT
 INTERVAL = 10          # Polling Interval
 ALERT_TIME = 5         # Minutes before an event to alert you
 OFFICE_HOUR_START = 8  # 8AM
-OFFICE_HOUR_END = 18   # 6PM
+OFFICE_HOUR_END = 23   # 6PM
 
 #------------------------------------------------------------------------------------------------------------
 # I use this to manually create a bulb using IP and MAC address. 
@@ -74,9 +79,11 @@ def getCalendarEntries(days=1):
     #events={'Start':[],'Subject':[],'Duration':[]}
     events=[]
     for a in appointments:
+        
         adate=datetime.fromtimestamp(int(a.Start))
-        #print(type(adate))
-        #print (a.Start, a.Subject,a.Duration)
+        
+        print("adate type: "+str(type(adate)))
+        print (adate)
         events.append({'Start':adate,'Subject':a.Subject,'Duration':a.Duration})
         #events['Subject'].append(a.Subject)
         #events['Duration'].append(a.Duration)
@@ -84,6 +91,7 @@ def getCalendarEntries(days=1):
 
 
 def main_loop(sc):
+    red_alert = False
     print(bright_magenta + "-----------------------------------------------------------------------------------------" + bright_white)
     print(bright_cyan + "📅️ {}".format(get_timestamp()) + bright_white)
 
@@ -93,30 +101,37 @@ def main_loop(sc):
         events = getCalendarEntries()    
         if not events:
             print(bright_white + "     No events to report")
-            lazylights.set_state(bulbs, 0, 0, 1, 8000, 500, raw=False)  # white
+            #lazylights.set_state(bulbs, 0, 0, 1, 8000, 500, raw=False)  # white
         else:
             for event in events:
                 event_end  = event['Start'] + timedelta(minutes=event['Duration'])
                 alert_time = event['Start'] - timedelta(minutes=ALERT_TIME)
                 if ( event_end) < datetime.now():
                     print(bright_green + "    ✅ SAFE ✅      Event \"{}\" happened in the past (Started:{}. Ended:{})".format(event['Subject'], event['Start'].strftime("%I:%M %p"), event_end.strftime("%I:%M %p")) + bright_white)
-                    lazylights.set_state(bulbs, 0, 0, 1, 8000, 500, raw=False)  # white
+                    #lazylights.set_state(bulbs, 0, 0, 1, 8000, 500, raw=False)  # white
 
-                if ( event['Start'] <= datetime.now() <= event_end):
-                    print(bright_red + "    🚨 ALERT 🚨     Event \"{}\" is happening right now (Started {}. Ends {})".format(event['Subject'], event['Start'].strftime("%I:%M %p"), event_end.strftime("%I:%M %p")) + bright_white)
-                    lazylights.set_state(bulbs, 0, 1, 1, 8000, 500, raw=False)  # red
-                    
                 if alert_time <= datetime.now() <= event['Start']:
                     print(bright_yellow + "    ⏰ WARNING ⏰   Event \"{}\" starts within 5 minutes at {}".format(event['Subject'],event['Start'].strftime("%I:%M %p")) + bright_white)
                     playsound.playsound('UpcomingMeeting.mp3', True)
-                    lazylights.set_state(bulbs, 60, 1, 1, 8000, 500, raw=False)  # yellow
-                else:
-                    lazylights.set_state(bulbs, 0, 0, 1, 8000, 500, raw=False)  # white
+                    #lazylights.set_state(bulbs, 60, 1, 1, 8000, 500, raw=False)  # yellow
 
+                if ( event['Start'] <= datetime.now() <= event_end):
+                    print(bright_red + "    🚨 ALERT 🚨     Event \"{}\" is happening right now (Started {}. Ends {})".format(event['Subject'], event['Start'].strftime("%I:%M %p"), event_end.strftime("%I:%M %p")) + bright_white)
+                    red_alert = True
+                    #lazylights.set_state(bulbs, 0, 1, 1, 8000, 500, raw=False)  # red
+                    
+                else:
+                    #lazylights.set_state(bulbs, 0, 0, 1, 8000, 500, raw=False)  # white
+                    pass
+
+    if red_alert:
+        lazylights.set_state(bulbs, 0, 1, 1, 8000, 500, raw=False)  # red
+    else:
+        lazylights.set_state(bulbs, 0, 0, 1, 8000, 500, raw=False)  # white
+        
     s.enter(INTERVAL, 1, main_loop, (sc,))
     
 def main():
-    
 
     s.enter(1, 1, main_loop, (s,))
     s.run()
